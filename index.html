@@ -1,13 +1,12 @@
-— index.html —
-
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8" />
-<title>UVAWtestmap2 — GitHub Pages Map</title>
+<title>UVAW Test Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
 html,body,#map { height:100%; margin:0; padding:0; }
@@ -18,13 +17,13 @@ html,body,#map { height:100%; margin:0; padding:0; }
 .popup-link { color:#007bff; text-decoration:underline; }
 </style>
 
-<!-- Leaflet JS (must load before using plugin) -->
+<!-- Leaflet JS (must load before plugin and your map code) -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<!-- Google Maps JS: replace YOUR_GOOGLE_MAPS_API_KEY below with your API key -->
+<!-- Google Maps JS: REPLACE the placeholder with your API key (no quotes) -->
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBLvshjOq7PXpUhp-266OI1KvM71BwhCsI"></script>
 
-<!-- google-mutant plugin (depends on Leaflet and Google Maps) -->
+<!-- google-mutant plugin (must come AFTER the Google Maps script and Leaflet) -->
 <script src="https://unpkg.com/leaflet.gridlayer.googlemutant/Leaflet.GoogleMutant.js"></script>
 
 <!-- PapaParse (CSV parser) -->
@@ -34,11 +33,11 @@ html,body,#map { height:100%; margin:0; padding:0; }
 <div id="map"></div>
 
 <script>
-// ===== CONFIGURE =====
-// Replace with your published Google Sheet CSV URL (publish sheet to web as CSV)
+// ========== CONFIG ==========
+// Published CSV URL (replace if you have a different sheet)
 const sheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6sULFXZr4vz2DLbg7AreeHc9GGjZuAr-AFYxLgGFTtQGDpX0cWBXj5lVahiGYXHi5s1gGzMs0WgPt/pub?output=csv';
 
-// Drive icon mapping (update if you change icons). These must be shared "Anyone with the link"
+// Icon mapping (Drive UC links). Ensure these files/folder are shared "Anyone with the link (Viewer)"
 const iconBaseMap = {
 '1': 'https://drive.google.com/uc?export=view&id=1_GlFtDpGGKdx7dV-Kg-uTtUB0E7OrucF',
 '2': 'https://drive.google.com/uc?export=view&id=1G5K4M6TUBYF5Ivg5i0eBipXof3V9t9b9',
@@ -57,27 +56,32 @@ const iconBaseMap = {
 'icon_07.png': 'https://drive.google.com/uc?export=view&id=1hH4pjt63GfChholToFvvRfH3fpGEEntH',
 'icon_08.png': 'https://drive.google.com/uc?export=view&id=1LL7hhU9b2E3MUgpRAgKvnu7RVecZjGPY'
 };
-// =====================
+// ============================
 
-// Init map
+// Initialize map and base layers
 const map = L.map('map').setView([43.7, -72.3], 11);
 
-// Base layers
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+// OpenStreetMap tile (optional layer)
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 maxZoom: 19,
 attribution: '&copy; OpenStreetMap contributors'
 });
 
-// Google layers (roadmap = Google default)
-const googleRoad = L.gridLayer.googleMutant({ type: 'roadmap' });
-// Add any other Google types if desired (satellite/hybrid/terrain)
-// const googleSat = L.gridLayer.googleMutant({ type: 'satellite' });
+// Google base layers via google-mutant
+const googleRoad = L.gridLayer.googleMutant({ type: 'roadmap' }); // default Google map
+const googleSatellite = L.gridLayer.googleMutant({ type: 'satellite' });
+const googleHybrid = L.gridLayer.googleMutant({ type: 'hybrid' });
 
-// Show Google roadmap by default
+// Default base (Google roadmap). Change to osmLayer.addTo(map) if you prefer OSM by default.
 googleRoad.addTo(map);
 
-// Layer control (OSM + Google Roadmap)
-L.control.layers({ "OpenStreetMap": osm, "Google Roadmap": googleRoad }).addTo(map);
+// Layer switcher
+L.control.layers({
+"OpenStreetMap": osmLayer,
+"Google Roadmap": googleRoad,
+"Google Satellite": googleSatellite,
+"Google Hybrid": googleHybrid
+}).addTo(map);
 
 // Icon utilities
 const defaultIcon = new L.Icon.Default();
@@ -85,12 +89,11 @@ const iconCache = {};
 
 function esc(s){ if (s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// Try to load image via Image() and return boolean
 function tryLoadImg(url, timeout=6000) {
 return new Promise(resolve => {
 try {
 const img = new Image();
-let done = false;
+let done=false;
 const t = setTimeout(()=>{ if(done) return; done=true; img.onload=img.onerror=null; resolve(false); }, timeout);
 img.onload = ()=>{ if(done) return; done=true; clearTimeout(t); resolve(true); };
 img.onerror = ()=>{ if(done) return; done=true; clearTimeout(t); resolve(false); };
@@ -166,7 +169,7 @@ if (cand && f.indexOf(cand.toString().toLowerCase()) !== -1) return fields[i];
 return null;
 }
 
-// Build map: load icons first, then CSV and markers
+// Main: prepare icons, parse CSV and add markers
 (async function main() {
 await prepareIcons();
 
@@ -178,6 +181,7 @@ complete: function(results) {
 const rows = results.data || [];
 const fields = (results.meta && results.meta.fields) ? results.meta.fields : [];
 
+// auto-detect common headers
 const websiteField = findFieldName(fields, ['Website','site','url']);
 const addressField = findFieldName(fields, ['Google Map Location','Address','Location']);
 const orgField = findFieldName(fields, ['Organization Name','Organization','Name']);
@@ -196,7 +200,7 @@ const lat = parseFloat(String(row[latField] || '').replace(/,/g,'').trim());
 const lon = parseFloat(String(row[lonField] || '').replace(/,/g,'').trim());
 if (isNaN(lat) || isNaN(lon)) return;
 
-// Choose icon
+// resolve icon
 let iconOption = defaultIcon;
 const iconResolved = resolveIconFromCell(row[resilienceField] || '');
 if (iconResolved) {
@@ -208,7 +212,7 @@ iconOption = L.icon({ iconUrl: iconResolved.value, iconSize:[36,36], iconAnchor:
 }
 }
 
-// Build popup
+// build popup (clickable website and address to Google Maps)
 const parts = [];
 const orgVal = orgField ? row[orgField] : (row['Organization Name'] || '');
 if (orgVal) parts.push('<div class="popup-title">' + esc(orgVal) + '</div>');
@@ -268,3 +272,11 @@ alert('CSV load error - check console');
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
